@@ -72,7 +72,7 @@ app.include_router(api_router)
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     try:
-        return templates.TemplateResponse("index.html", {"request": request})
+        return templates.TemplateResponse(request, "index.html")
     except TemplateNotFound:
         return HTMLResponse(
             content="""

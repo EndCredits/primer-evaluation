@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
 
 
-async def run_analysis(
+def run_analysis(
     task_id: str,
     cache_key: str,
     forward: str,
@@ -38,20 +38,27 @@ async def run_analysis(
     max_mismatches: Optional[int],
     allow_3prime_mismatches: Optional[int],
 ):
+    """Synchronous background task (runs in thread pool)."""
+    logger.info("run_analysis ENTER: task_id=%s, cache_key=%s", task_id, cache_key)
     try:
         service = get_analysis_service()
+        logger.info("Service obtained, running analysis...")
         result = service.analyze(
             forward, reverse, template,
             max_mismatches, allow_3prime_mismatches,
         )
+        logger.info("Analysis done, calling save_analysis_result...")
         save_analysis_result(cache_key, forward, reverse, template, result)
+        logger.info("Result saved for task_id=%s", task_id)
     except Exception as e:
-        logger.error("Analysis failed: %s", e)
+        logger.error("Analysis failed for task_id=%s: %s", task_id, e)
+        import traceback
+        logger.error("Traceback: %s", traceback.format_exc())
         update_task_error(task_id, str(e))
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
-async def analyze(request: AnalysisRequest, background_tasks: BackgroundTasks):
+async def analyze(request: AnalysisRequest):
     if not request.forward or not request.reverse:
         raise HTTPException(status_code=400, detail="forward and reverse primers are required")
 
@@ -65,20 +72,33 @@ async def analyze(request: AnalysisRequest, background_tasks: BackgroundTasks):
 
     cached = get_cached_result(cache_key)
     if cached:
+        # Create a task linked to the existing cache record
         task_id = create_pending_task(cache_key)
-        save_analysis_result(cache_key, forward, reverse, template, cached)
+        # Update that task to completed with the cached result
+        save_analysis_result(cache_key, forward, reverse, template, cached, task_id=task_id)
         return AnalysisResponse(task_id=task_id, status="cached")
 
+    # Create pending task first, pass its ID through the whole flow
     task_id = create_pending_task(cache_key)
-    background_tasks.add_task(
-        run_analysis, task_id, cache_key, forward, reverse, template, max_mm, allow_3p
-    )
-    return AnalysisResponse(task_id=task_id, status="pending")
+
+    try:
+        service = get_analysis_service()
+        result = service.analyze(forward, reverse, template, max_mm, allow_3p)
+        # Pass task_id so save_analysis_result updates the RIGHT task
+        save_analysis_result(cache_key, forward, reverse, template, result, task_id=task_id)
+    except Exception as e:
+        logger.error("Analysis failed for task_id=%s: %s", task_id, e)
+        update_task_error(task_id, str(e))
+        return AnalysisResponse(task_id=task_id, status="failed")
+
+    return AnalysisResponse(task_id=task_id, status="completed")
 
 
 @router.get("/result/{task_id}", response_model=ResultResponse)
 async def get_result(task_id: str):
+    logger.info("get_result called: task_id=%s", task_id)
     task = get_task(task_id)
+    logger.info("get_task returned: %s", task)
     if not task:
         return ResultResponse(status="not_found", error="Task not found")
     if task["status"] == "pending":

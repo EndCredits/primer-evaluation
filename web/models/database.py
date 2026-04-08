@@ -146,20 +146,22 @@ def save_analysis_result(
     reverse: str,
     template: Optional[str],
     result: Dict[str, Any],
+    task_id: Optional[str] = None,
 ) -> str:
     session = get_session()
     try:
         expires_at = datetime.utcnow() + timedelta(seconds=config.CACHE_TTL_SECONDS)
 
-        existing = session.query(AnalysisCache).filter(
+        # Update or create cache record
+        existing_cache = session.query(AnalysisCache).filter(
             AnalysisCache.cache_key == cache_key
         ).first()
 
-        if existing:
-            existing.result = json.dumps(result)
-            existing.created_at = datetime.utcnow()
-            existing.expires_at = expires_at
-            task_id = existing.id
+        if existing_cache:
+            existing_cache.result = json.dumps(result)
+            existing_cache.created_at = datetime.utcnow()
+            existing_cache.expires_at = expires_at
+            cache_record_id = existing_cache.id
         else:
             cache_record = AnalysisCache(
                 cache_key=cache_key,
@@ -171,22 +173,18 @@ def save_analysis_result(
             )
             session.add(cache_record)
             session.commit()
-            task_id = cache_record.id
+            cache_record_id = cache_record.id
 
-        task = session.query(Task).filter(Task.cache_key == cache_key).first()
-        if task:
-            task.status = "completed"
-            task.result = json.dumps(result)
-        else:
-            task = Task(
-                cache_key=cache_key,
-                status="completed",
-                result=json.dumps(result),
-            )
-            session.add(task)
+        # Update the specific task by ID, not by cache_key
+        if task_id:
+            task = session.query(Task).filter(Task.id == task_id).first()
+            if task:
+                task.status = "completed"
+                task.result = json.dumps(result)
+                task.cache_key = cache_key
 
         session.commit()
-        return task_id
+        return cache_record_id
     finally:
         session.close()
 
