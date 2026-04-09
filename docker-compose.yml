@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "5972:5972"
     environment:
       - DEBUG=false
       - DATABASE_URL=sqlite:///./analysis_cache.db
@@ -14,7 +14,7 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5972/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3

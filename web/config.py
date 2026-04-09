@@ -19,7 +19,7 @@ class Config:
     ALLOW_3PRIME_MISMATCHES: int = 1
 
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT", "5972"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
     MAX_TEMPLATE_LENGTH: int = 100_000

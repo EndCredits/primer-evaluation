@@ -49,7 +49,7 @@ primer-eval ATGCCCTGAGCTAAAGCTG TCACCGAGACAAAGCTCAC \
 ```shell
 pip install -r requirements-web.txt
 uvicorn web.main:app --reload
-# Open http://localhost:8000
+# Open http://localhost:5972
 ```
 
 ### Docker
