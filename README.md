@@ -48,7 +48,7 @@ primer-eval ATGCCCTGAGCTAAAGCTG TCACCGAGACAAAGCTCAC \
 
 ```shell
 pip install -r requirements-web.txt
-cd web && uvicorn main:app --reload
+uvicorn web.main:app --reload
 # Open http://localhost:8000
 ```
 
