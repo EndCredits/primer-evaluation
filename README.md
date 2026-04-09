@@ -11,6 +11,10 @@ Evaluate DNA primer pairs for PCR experiments using primer3-py.
 
 ## Installation
 
+### Web Demo
+
+https://primer.endcredits.cc/
+
 ### From Git (recommended)
 
 ```shell
